@@ -70,7 +70,78 @@ asyncio.run(main())
 
 总的来说，使用 `async def` 定义的协程函数不能像普通函数那样直接调用。为了执行协程，你需要将其安排在异步环境中，使用 `await`、`asyncio.run()` 或者将其封装在一个任务中。这是异步编程模型的一个基本特性，它与传统的同步编程模型有着根本的不同。
 
-# 协程函数的暂停与恢复
+# 事件循环
+
+	在Python的异步编程中，事件循环（Event Loop）是一个核心概念。事件循环管理着异步操作的执行，是 `asyncio` 模块中执行协程的机制。
+
+### 事件循环的工作原理
+
+1. **协程的调度**：事件循环负责调度并执行协程。当一个协程通过 `await` 暂停时，事件循环可以继续执行其他协程或任务，直到原来的协程可以被恢复。
+
+2. **任务的管理**：事件循环还管理着任务（`asyncio.Task` 对象），这些任务代表了事件循环中的异步操作。事件循环负责开始任务的执行，并在异步操作完成后恢复任务。
+
+3. **事件的处理**：事件循环在内部维护着一个事件队列，它会不断地检查队列中的事件（如I/O事件、定时器事件等），并根据事件类型进行相应的处理。
+
+### 事件循环的用途
+
+- **执行异步代码**：事件循环是执行 `async` 函数的环境。所有的异步操作都在事件循环中进行调度和执行。
+
+- **支持并发**：事件循环允许多个异步任务并发执行，这对于I/O密集型应用尤其有益。
+
+- **管理异步I/O操作**：事件循环可以有效地管理异步I/O操作，例如网络请求和数据库操作。
+
+### 使用事件循环
+
+1. **启动事件循环**：
+
+   - 在Python 3.7及以上版本中，使用 `asyncio.run()` 函数是启动事件循环的推荐方式。它创建一个新的事件循环，并运行传入的协程。
+
+   ```python
+   import asyncio
+   
+   async def main():
+       # 协程代码
+       ...
+   
+   asyncio.run(main())
+   ```
+
+2. **手动管理事件循环**（在特定情况下）：
+
+   - 在某些场景下，你可能需要手动管理事件循环。这通常在更复杂的应用或库中出现。
+
+   ```python
+   loop = asyncio.get_event_loop()  # 获取事件循环
+   try:
+       loop.run_until_complete(main())  # 运行协程直到完成
+   finally:
+       loop.close()  # 关闭事件循环
+   ```
+
+### 示例
+
+```python
+import asyncio
+
+async def my_coroutine():
+    await asyncio.sleep(1)  # 模拟异步操作
+    print("协程执行完毕")
+
+# 启动事件循环并运行协程
+asyncio.run(my_coroutine())
+```
+
+这个示例中，`my_coroutine` 在事件循环中执行。`asyncio.sleep(1)` 暂停了协程的执行，控制权返回给事件循环，直到1秒后协程恢复执行。
+
+### 注意事项
+
+- 通常一个应用只应该有一个事件循环实例。
+- 在多线程环境中使用事件循环时需要小心，因为大多数事件循环实现并不是线程安全的。
+- 在框架或库中，事件循环的管理通常由框架或库自身负责。
+
+### 总结
+
+事件循环是Python异步编程的核心。它管理着异步任务的执行，允许多个任务并发运行，从而提高了程序的效率和响应性。数的暂停与恢复
 
 	在Python中，通过使用`async def`定义的协程函数可以利用`await`关键字被暂停和恢复。这是异步编程的一个核心特性，允许程序在等待异步操作完成时释放控制权，以便可以执行其他任务。下面通过一个例子来具体说明这一过程：
 
@@ -314,8 +385,200 @@ asyncio.run(main())
 
 在这个示例中，`main` 函数创建了一个任务，然后在等待了1秒后取消它。被取消的任务会引发 `asyncio.CancelledError` 异常。
 
+### `asyncio.gather()`小讲
+
+​	`asyncio.gather()` 是 Python `asyncio` 模块中的一个函数，它用于并发地运行多个异步任务（通常是协程）。其主要目的是等待传入的所有异步任务完成，并收集它们的结果。
+
+#### 用法
+
+​	可以将多个协程或任务作为参数传递给 `asyncio.gather()`。它会同时启动这些协程，并在它们都完成之前保持等待状态。当所有协程都完成后，`asyncio.gather()` 返回一个包含每个协程返回值的列表。
+
+#### 示例
+
+```python
+import asyncio
+
+async def my_coroutine(number):
+    await asyncio.sleep(1)
+    return number * 2
+
+async def main():
+    results = await asyncio.gather(
+        my_coroutine(1),
+        my_coroutine(2),
+        my_coroutine(3)
+    )
+    print(results)  # 输出 [2, 4, 6]
+
+asyncio.run(main())
+
+```
+
+在这个例子中，三个 `my_coroutine` 协程被并发执行。`asyncio.gather()` 等待所有这些协程完成，并收集它们的返回值。
+
+#### 特性
+
+- **并发执行**：`asyncio.gather()` 使得协程可以并发执行，这对于I/O密集型和高延迟的任务尤其有用。
+- **结果收集**：它返回一个包含所有协程返回值的列表，这使得结果处理变得容易。
+- **异常处理**：如果在执行过程中任何一个协程抛出异常，`asyncio.gather()` 会立即抛出异常。你可以选择捕获这些异常进行处理。
+- **灵活性**：你可以根据需要传递任意数量的协程或任务给 `asyncio.gather()`。
+
+#### 使用场景
+
+`asyncio.gather()` 非常适合以下场景：
+
+- 当你有多个异步操作需要并行执行，并且你想要在它们全部完成后继续执行时。
+- 当你需要收集多个异步操作的结果，并以集合的形式处理它们时。
+- 在进行并发网络请求、数据库操作或任何其他类型的并行I/O操作时。
+
+### 问题反思
+
+```
+可以直接使用 await 或 asyncio.run() 来运行协程对象，为什么要使用任务呢？
+```
+
+​	确实，可以直接使用 `await` 或 `asyncio.run()` 来运行协程对象。然而，使用任务（Task）提供了额外的灵活性和控制，特别是当你需要并发执行多个协程或管理协程的执行时。下面是使用任务而不是直接 `await` 的一些优点：
+
+**1. 并发执行**
+
+- **直接使用 `await`**：当你使用 `await coroutine`，你的协程会串行执行。即一个协程完成后，下一个协程才开始。
+
+- **使用任务**：通过创建任务（`asyncio.create_task(coroutine)`），你可以并发执行多个协程。这意味着你可以同时启动多个协程，并让它们在后台运行，这对于提高I/O密集型应用的效率非常有用。
+
+**2. 更细粒度的控制**
+
+- 使用任务可以让你在协程执行过程中拥有更多的控制，例如你可以取消任务，检查任务的状态（是否完成、是否被取消），或者在任务完成后添加回调。
+
+**3. 延迟等待**
+
+- 创建任务后，你可以选择何时等待这个任务完成。这使得你可以先启动一个或多个任务，然后在需要结果的时候再等待它们完成。
+
+**4. 异常处理**
+
+- 当使用任务并发运行多个协程时，如果某个协程中发生异常，它不会立即终止其他正在运行的协程。你可以在合适的时候处理这些异常。
+
+**示例：并发执行与异常处理**
+
+这里有一个例子来说明这些优点：
+
+```python
+import asyncio
+
+async def task_func(id):
+    print(f"任务{id}开始")
+    await asyncio.sleep(2)  # 模拟异步操作
+    if id == 1:
+        raise Exception("任务1出错")
+    print(f"任务{id}结束")
+
+async def main():
+    task1 = asyncio.create_task(task_func(1))
+    task2 = asyncio.create_task(task_func(2))
+
+    # 并发等待两个任务
+    try:
+        await asyncio.gather(task1, task2)
+    except Exception as e:
+        print(f"捕获异常: {e}")
+
+asyncio.run(main())
+```
+
+​	在这个示例中，两个任务并发执行。如果一个任务发生异常，它会被捕获，而不会影响另一个任务的执行。
+
+**总结**
+
+​	虽然直接使用 `await` 对于简单的异步操作已经足够，但在需要并发执行、更细粒度的控制或异常处理的情况下，使用任务是一个更好的选择。任务提供了协程的一个更强大、更灵活的封装，适用于更复杂的异步编程场景。
+
 ### 总结
 
 `asyncio` 的任务提供了一种强大的方式来并发执行和管理协程。它们使得异步代码更容易编写和维护，同时提供了并发执行、任务取消、获取结果等功能。通过这些示例，你可以看到任务是如何在实践中使用的，以及它们如何使异步编程变得更加高效和灵活。
 
+## await关键字
+
+### `await` 关键字的详细讲解
+
+#### 基本概念
+
+- **协程的暂停与恢复**：`await` 用于暂停协程的执行，直到等待的异步操作完成。这个操作通常是一个异步函数调用。一旦异步操作完成，协程会从暂停的地方恢复执行。
+
+- **事件循环与控制权**：当协程执行到 `await` 表达式时，它将控制权交回给事件循环。这允许事件循环管理其他任务或协程。一旦 `await` 的操作完成，事件循环会恢复该协程的执行。
+
+#### 使用场景
+
+- **等待异步函数**：在协程内部，你可以使用 `await` 来等待另一个异步函数的结果。
+
+- **异步I/O操作**：在进行网络请求、数据库操作或任何其他类型的I/O操作时，`await` 使得你可以等待操作完成而不阻塞整个程序的执行。
+
+- **异步延时**：使用 `await asyncio.sleep()` 来模拟异步延时。
+
+#### 示例
+
+1. **基础示例**：
+
+   ```python
+   import asyncio
+   
+   async def my_task():
+       print("任务开始")
+       await asyncio.sleep(1)  # 模拟耗时1秒的异步操作
+       print("任务结束")
+   
+   async def main():
+       await my_task()  # 等待 my_task 协程完成
+   
+   asyncio.run(main())
+   ```
+
+   这个示例中，`main` 协程等待 `my_task` 完成。`my_task` 内的 `await` 语句暂停了其执行，允许模拟的耗时操作（`asyncio.sleep(1)`）进行。
+
+2. **等待多个异步操作**：
+
+   ```python
+   async def fetch_data():
+       print("开始获取数据")
+       await asyncio.sleep(2)  # 模拟数据获取过程
+       print("数据获取完成")
+       return "数据"
+   
+   async def process_data():
+       print("开始处理数据")
+       await asyncio.sleep(1)  # 模拟数据处理过程
+       print("数据处理完成")
+       return "处理结果"
+   
+   async def main():
+       data = await fetch_data()  # 等待获取数据
+       result = await process_data()  # 等待处理数据
+       print(f"获取的数据: {data}, 处理的结果: {result}")
+   
+   asyncio.run(main())
+   ```
+
+   在此示例中，`main` 协程首先等待 `fetch_data` 协程完成，然后等待 `process_data` 协程完成。
+
+3. **并发执行多个协程**：
+
+   ```python
+   async def my_coroutine(id):
+       print(f"协程{id}开始")
+       await asyncio.sleep(2)  # 模拟异步操作
+       print(f"协程{id}结束")
+       return id
+   
+   async def main():
+       tasks = [my_coroutine(i) for i in range(3)]  # 创建多个协程
+       results = await asyncio.gather(*tasks)  # 并发执行协程
+       print(f"所有协程的结果: {results}")
+   
+   asyncio.run(main())
+   ```
+
+   这里，`main` 函数使用 `asyncio.gather()` 来并发执行多个 `my_coroutine` 协程。
+
+### 注意事项
+
+- `await` 只能在 `async def` 定义的协程函数内部使用。
+- 使用 `await` 时，被 `await` 的协程或任务会在完成前阻塞当前协程的执行，但不会阻塞整个程序。
+- 在合适的场景使用 `await` 可以使得程序更加响应，特别是在I/O密集型操作中。
 
